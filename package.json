@@ -1,0 +1,22 @@
+{
+  "name": "bike-workshop-management-portal",
+  "version": "1.0.0",
+  "description": "Complete Bike Workshop Management Portal - MERN Stack",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "test:api": "node backend/test-api.js",
+    "seed": "npm --prefix backend run seed"
+  },
+  "keywords": [
+    "bike-workshop",
+    "garage-management",
+    "react",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC"
+}
