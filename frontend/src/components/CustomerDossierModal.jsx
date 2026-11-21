@@ -347,13 +347,13 @@ export default function CustomerDossierModal({
 
         {/* Footer Quick Actions */}
         {data && !loading && (
-          <div className="p-4 bg-slate-50 border-t border-purple-100 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-slate-500 font-medium">Quick Workshop Actions:</span>
+          <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-purple-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] sm:text-xs text-slate-500 font-medium hidden sm:inline">Quick Actions:</span>
               <button
                 type="button"
                 onClick={() => onCreateJobCard && onCreateJobCard(data.customer, data.bikes)}
-                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
+                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>New Job Card</span>
@@ -361,10 +361,10 @@ export default function CustomerDossierModal({
               <button
                 type="button"
                 onClick={() => onRecordPayment && onRecordPayment(data.customer)}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
+                className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span>Settle Dues / Payment</span>
+                <span>Settle Payment</span>
               </button>
             </div>
 
@@ -372,9 +372,9 @@ export default function CustomerDossierModal({
               <button
                 type="button"
                 onClick={() => onOpenReport && onOpenReport(mobile)}
-                className="px-3 py-2 rounded-xl border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-bold transition-colors flex items-center gap-1"
+                className="flex-1 sm:flex-initial px-3 py-2 rounded-xl border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-bold transition-colors flex items-center justify-center gap-1"
               >
-                <span>Full Reports Tab</span>
+                <span>Full Reports</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
               <button

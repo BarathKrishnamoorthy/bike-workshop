@@ -173,7 +173,7 @@ export default function ReportsPage({ initialPhone }) {
       </div>
 
       {/* Tabs Bar */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-1 bg-white p-2 rounded-2xl border border-purple-100 shadow-xs">
+      <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pb-1 bg-white p-2 rounded-2xl border border-purple-100 shadow-xs">
         {reportTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

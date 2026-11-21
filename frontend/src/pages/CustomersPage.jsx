@@ -249,9 +249,107 @@ export default function CustomersPage({ onBookServiceForBike, onLookupPhone }) {
         )}
       </div>
 
-      {/* Customers Table / Cards */}
+      {/* Customers Table / Mobile Cards */}
       <div className="bg-white rounded-2xl border border-purple-100 shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile Cards View (Phones < md) */}
+        <div className="md:hidden divide-y divide-purple-50">
+          {loading ? (
+            <div className="py-12 text-center text-purple-600 text-xs">
+              <div className="inline-block w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+              Loading customer directory...
+            </div>
+          ) : customers.length > 0 ? (
+            customers.map((c) => (
+              <div key={c._id} className="p-4 space-y-3 hover:bg-purple-50/20 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">{c.name}</h3>
+                    <div className="text-[11px] text-slate-400">Joined: {new Date(c.createdAt).toLocaleDateString()}</div>
+                  </div>
+                  <button
+                    onClick={() => onLookupPhone && onLookupPhone(c.mobile)}
+                    className="px-2.5 py-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-xs flex items-center gap-1 active:scale-95"
+                  >
+                    <span>360° Dossier</span>
+                  </button>
+                </div>
+
+                {/* Contact info */}
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <a
+                    href={`tel:${c.mobile}`}
+                    className="inline-flex items-center gap-1 font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md"
+                  >
+                    <Phone className="w-3 h-3" />
+                    <span>{c.mobile}</span>
+                  </a>
+                  {c.email && (
+                    <span className="text-slate-500 truncate max-w-[180px]">{c.email}</span>
+                  )}
+                </div>
+
+                {/* Registered Bikes */}
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    Bikes ({c.bikes?.length || 0})
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.bikes && c.bikes.length > 0 ? (
+                      c.bikes.map((b) => (
+                        <span
+                          key={b._id || b}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-50/80 text-purple-700 border border-purple-200/80 font-mono"
+                        >
+                          <Bike className="w-3 h-3 text-purple-600" />
+                          <span>{b.brand ? `${b.brand} (${b.registrationNumber})` : 'Bike'}</span>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">No bikes registered</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="pt-2 border-t border-purple-50 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-500 truncate max-w-[140px]">{c.address || 'No address'}</span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={() => {
+                        setActiveCustomerIdForBike(c._id);
+                        setShowAddBikeModal(true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100"
+                    >
+                      + Bike
+                    </button>
+                    <button
+                      onClick={() => handleOpenDetails(c._id)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:bg-purple-50"
+                      title="View Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCustomer(c._id, c.name)}
+                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50"
+                      title="Delete Customer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No customers found matching "{search}".
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#fcfaff] text-xs font-semibold text-purple-950 uppercase border-b border-purple-100">
               <tr>

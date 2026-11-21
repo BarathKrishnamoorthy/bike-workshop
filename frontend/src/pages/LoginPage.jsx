@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bike, ShieldCheck, Lock, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Bike, ShieldCheck, Lock, Mail, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -34,22 +34,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-purple-200/50">
+    <div className="min-h-screen bg-gradient-to-br from-[#4c1d95] via-[#581c87] to-[#1e1b4b] flex items-center justify-center p-3 sm:p-6">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-purple-200/50">
         {/* Brand Icon & Heading */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center mx-auto mb-4 shadow-inner">
-            <Bike className="w-9 h-9" />
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center mx-auto mb-3 shadow-inner">
+            <Bike className="w-8 h-8 sm:w-9 sm:h-9" />
           </div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">SpeedyWheels Portal</h1>
-          <p className="text-slate-500 text-xs mt-1">Bike Workshop Management System</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">SpeedyWheels Portal</h1>
+          <p className="text-slate-500 text-xs mt-0.5">Bike Workshop Management System</p>
         </div>
 
         {/* Demo Login Quick Access Banner */}
-        <div className="mb-6 p-4 rounded-2xl bg-purple-50 border border-purple-200/80">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-purple-600" />
+        <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-purple-50/80 border border-purple-200/80">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
               Demo Access Credentials
             </span>
           </div>
@@ -61,7 +61,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleDemoLogin}
             disabled={loading}
-            className="w-full mt-3 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            className="w-full mt-2.5 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>One-Click Demo Admin Login</span>
@@ -75,7 +75,7 @@ export default function LoginPage() {
         )}
 
         {/* Standard Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">Email Address</label>
             <div className="relative">
@@ -86,7 +86,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@workshop.com"
-                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden"
+                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden transition-all"
               />
             </div>
           </div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden"
+                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden transition-all"
               />
             </div>
           </div>
@@ -122,8 +122,18 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-8 pt-4 border-t border-purple-50 text-center text-slate-400 text-[11px]">
-          SpeedyWheels Management System • Secure JWT Authentication
+        {/* Footer with Powered by RB NextWave */}
+        <div className="mt-6 pt-4 border-t border-purple-100 flex flex-col items-center justify-center space-y-1 text-center">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[11px] font-medium text-slate-500">
+            <span>Powered by</span>
+            <span className="font-extrabold text-purple-900 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-purple-600" />
+              RB NextWave
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400">
+            SpeedyWheels Management System • Secure JWT Authentication
+          </div>
         </div>
       </div>
     </div>

@@ -358,9 +358,118 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
         </div>
       </div>
 
-      {/* Services List Table */}
+      {/* Services List: Mobile Cards + Desktop Table */}
       <div className="bg-white rounded-2xl border border-purple-100 shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile Job Cards View (Phones < md) */}
+        <div className="md:hidden divide-y divide-purple-50">
+          {loading ? (
+            <div className="py-12 text-center text-purple-600 text-xs">
+              <div className="inline-block w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+              Loading job cards...
+            </div>
+          ) : filteredServices.length > 0 ? (
+            filteredServices.map((srv) => (
+              <div key={srv._id} className="p-4 space-y-3 hover:bg-purple-50/20 transition-colors">
+                {/* Header: Job Card #, Date, Status */}
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-purple-700 font-mono text-xs">{srv.jobCardNumber}</span>
+                    <div className="text-[10px] text-slate-400">{new Date(srv.serviceDate).toLocaleDateString()}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={srv.status}
+                      onChange={(e) => handleUpdateStatus(srv._id, e.target.value)}
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer outline-hidden ${statusColors[srv.status]}`}
+                    >
+                      <option value="Booked">Booked</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Ready">Ready</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Customer & Vehicle */}
+                <div className="flex items-start justify-between gap-2 text-xs">
+                  <div>
+                    <div className="font-bold text-slate-800">{srv.customer?.name || 'Walk-in Customer'}</div>
+                    {srv.customer?.mobile && (
+                      <button
+                        onClick={() => onLookupPhone && onLookupPhone(srv.customer.mobile)}
+                        className="text-[11px] text-purple-700 font-mono font-semibold flex items-center gap-1 mt-0.5 underline"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{srv.customer.mobile}</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-slate-800 font-mono">
+                      {srv.bike ? `${srv.bike.brand} ${srv.bike.model}` : 'Bike N/A'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      {srv.bike?.registrationNumber || ''}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service Details & Complaints */}
+                <div className="p-2.5 rounded-xl bg-purple-50/50 border border-purple-100/60 text-xs flex items-center justify-between gap-2">
+                  <span className="font-semibold text-purple-900 bg-white px-2 py-0.5 rounded border border-purple-200">
+                    {srv.serviceType}
+                  </span>
+                  {srv.currentKilometre > 0 && (
+                    <span className="text-[11px] text-slate-600 font-mono">
+                      {srv.currentKilometre} KM
+                    </span>
+                  )}
+                </div>
+
+                {/* Financial Summary & Quick Actions */}
+                <div className="pt-2 border-t border-purple-50 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-slate-800">
+                      Total: ₹{srv.totalAmount?.toLocaleString('en-IN')}
+                    </div>
+                    {srv.pendingBalance > 0 ? (
+                      <div className="text-[11px] text-rose-600 font-bold">
+                        Due: ₹{srv.pendingBalance.toLocaleString('en-IN')}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-emerald-600 font-semibold">Fully Paid</div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    {srv.pendingBalance > 0 && onOpenPaymentForService && (
+                      <button
+                        onClick={() => onOpenPaymentForService(srv)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
+                      >
+                        Pay
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedJobCardForPrint(srv)}
+                      className="p-1.5 rounded-xl text-purple-700 hover:bg-purple-100 border border-purple-200"
+                      title="Print Job Card"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No services found matching filters.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#fcfaff] text-xs font-semibold text-purple-950 uppercase border-b border-purple-100">
               <tr>

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import MobileBottomNav from './components/MobileBottomNav';
 import DashboardPage from './pages/DashboardPage';
 import CustomersPage from './pages/CustomersPage';
 import ServicesPage from './pages/ServicesPage';
@@ -25,7 +27,7 @@ function MainApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fbfbfe] flex items-center justify-center">
+      <div className="min-h-screen bg-[#fbfbfe] flex items-center justify-center p-4">
         <div className="flex flex-col items-center space-y-3">
           <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-semibold text-purple-900">Initializing SpeedyWheels Portal...</p>
@@ -80,7 +82,7 @@ function MainApp() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfbfe] flex">
+    <div className="min-h-screen bg-[#fbfbfe] flex flex-col">
       {/* Purple Sidebar */}
       <Sidebar
         currentTab={currentTab}
@@ -98,8 +100,8 @@ function MainApp() {
           onLookupPhone={handleOpenDossier}
         />
 
-        {/* Page Content Container */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page Content Container with safe bottom padding for MobileBottomNav */}
+        <main className="flex-1 p-3.5 sm:p-5 lg:p-8 max-w-7xl w-full mx-auto pb-28 lg:pb-8">
           {currentTab === 'dashboard' && (
             <DashboardPage
               onNavigate={(tab) => setCurrentTab(tab)}
@@ -142,7 +144,20 @@ function MainApp() {
             />
           )}
         </main>
+
+        {/* Global Footer (Powered by RB NextWave) */}
+        <Footer />
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Phone & Tablet) */}
+      <MobileBottomNav
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        onOpenNewJobCard={() => {
+          setServiceInitialOpen(true);
+          setCurrentTab('services');
+        }}
+      />
 
       {/* Universal 360° Customer Dossier Modal */}
       {dossierMobile && (

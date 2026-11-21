@@ -244,9 +244,73 @@ export default function PaymentsPage({ initialServiceForPayment, onLookupPhone }
         </div>
       </div>
 
-      {/* Payments Table */}
+      {/* Payments: Mobile Cards + Desktop Table */}
       <div className="bg-white rounded-2xl border border-purple-100 shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View (Phones < md) */}
+        <div className="md:hidden divide-y divide-purple-50">
+          {loading ? (
+            <div className="py-12 text-center text-purple-600 text-xs">
+              <div className="inline-block w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+              Loading payment history...
+            </div>
+          ) : filteredPayments.length > 0 ? (
+            filteredPayments.map((p) => (
+              <div key={p._id} className="p-4 space-y-2.5 hover:bg-purple-50/20 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-700 font-mono text-xs">{p.invoiceNumber}</span>
+                  <div className="text-[10px] text-slate-400">{new Date(p.paymentDate).toLocaleDateString()}</div>
+                </div>
+
+                <div className="flex items-start justify-between gap-2 text-xs">
+                  <div>
+                    <div className="font-bold text-slate-800">{p.customer?.name || 'Walk-in'}</div>
+                    {p.customer?.mobile && (
+                      <button
+                        onClick={() => onLookupPhone && onLookupPhone(p.customer.mobile)}
+                        className="text-[11px] text-purple-700 font-mono flex items-center gap-1 mt-0.5 underline"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{p.customer.mobile}</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="font-bold text-emerald-600 text-sm">₹{p.amountPaid?.toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {p.paymentMethod} • {p.paymentType}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-purple-50 flex items-center justify-between text-xs">
+                  <div>
+                    {p.pendingBalance > 0 ? (
+                      <span className="text-[11px] text-rose-600 font-bold">Balance: ₹{p.pendingBalance.toLocaleString('en-IN')}</span>
+                    ) : (
+                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Fully Cleared
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedReceipt(p)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center gap-1 border border-purple-200"
+                  >
+                    <Printer className="w-3 h-3" />
+                    <span>Receipt</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No payment transactions found matching filters.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#fcfaff] text-xs font-semibold text-purple-950 uppercase border-b border-purple-100">
               <tr>

@@ -4,7 +4,8 @@
 
 @layer base {
   body {
-    @apply bg-[#fbfbfe] text-slate-800;
+    @apply bg-[#fbfbfe] text-slate-800 antialiased;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -22,6 +23,20 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #8b5cf6;
+}
+
+/* Hide scrollbar for clean horizontal tab lists */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile Safe Areas */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 /* Print styling for invoices and job cards */
