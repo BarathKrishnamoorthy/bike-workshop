@@ -55,6 +55,8 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
   const [discount, setDiscount] = useState(0);
   const [paidAdvance, setPaidAdvance] = useState(0);
   const [notes, setNotes] = useState('');
+  const [taxMode, setTaxMode] = useState('without_tax'); // 'without_tax' or 'with_tax'
+  const [selectedTaxRate, setSelectedTaxRate] = useState(18);
 
   // Dynamic Line Items
   const [spareParts, setSpareParts] = useState([
@@ -203,7 +205,8 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
     0
   );
   const subtotal = Math.max(0, calculatedPartsTotal + calculatedLabourTotal - Number(discount || 0));
-  const taxAmount = Math.round((subtotal * 18) / 100);
+  const effectiveTaxRate = taxMode === 'with_tax' ? Number(selectedTaxRate || 18) : 0;
+  const taxAmount = effectiveTaxRate > 0 ? Math.round((subtotal * effectiveTaxRate) / 100) : 0;
   const calculatedTotal = subtotal + taxAmount;
   const balanceDue = Math.max(0, calculatedTotal - Number(paidAdvance || 0));
 
@@ -226,7 +229,7 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
         spareParts: spareParts.filter((p) => p.name.trim() !== ''),
         labourCharges: labourCharges.filter((l) => l.description.trim() !== ''),
         discount: Number(discount) || 0,
-        taxRate: 18,
+        taxRate: effectiveTaxRate,
         currentKilometre: Number(currentKilometre) || 0,
         assignedMechanic,
         paidAmount: Number(paidAdvance) || 0,
@@ -238,16 +241,6 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
       if (res.data.success) {
         setShowCreateModal(false);
         fetchServices(phoneFilter);
-        if (Number(paidAdvance) > 0) {
-          await api.post('/payments', {
-            serviceId: res.data.data._id,
-            customerId: selectedCustomerId,
-            amountPaid: Number(paidAdvance),
-            paymentType: 'Advance',
-            paymentMethod: 'UPI',
-            notes: 'Advance booking payment',
-          });
-        }
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to generate Job Card');
@@ -984,7 +977,7 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
 
               {/* Section 6: Bill Totals & Advance */}
               <div className="p-4 bg-purple-50/60 rounded-xl border border-purple-100 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
                     <label className="font-semibold text-slate-600 block mb-1">Assigned Mechanic</label>
                     <input
@@ -1004,6 +997,63 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
                       placeholder="0"
                       className="w-full p-2 bg-white rounded-lg border border-purple-200 outline-hidden font-bold text-emerald-700"
                     />
+                  </div>
+
+                  {/* Ask With Tax or Without Tax Option */}
+                  <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-700 text-xs">GST Tax Option:</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${taxMode === 'with_tax' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'}`}>
+                        {taxMode === 'with_tax' ? `With Tax (${effectiveTaxRate}%)` : 'Without Tax (0%)'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('without_tax')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                          taxMode === 'without_tax'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-200'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${taxMode === 'without_tax' ? 'border-white bg-white' : 'border-slate-400'}`}>
+                          {taxMode === 'without_tax' && <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>}
+                        </span>
+                        <span>Without Tax</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('with_tax')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                          taxMode === 'with_tax'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-200'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${taxMode === 'with_tax' ? 'border-white bg-white' : 'border-slate-400'}`}>
+                          {taxMode === 'with_tax' && <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>}
+                        </span>
+                        <span>With Tax</span>
+                      </button>
+                    </div>
+
+                    {taxMode === 'with_tax' && (
+                      <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600">
+                        <span>GST Slab:</span>
+                        <select
+                          value={selectedTaxRate}
+                          onChange={(e) => setSelectedTaxRate(Number(e.target.value))}
+                          className="px-2 py-1 rounded-lg border border-purple-200 text-xs font-bold text-purple-900 bg-purple-50/50"
+                        >
+                          <option value={18}>18% GST (Standard)</option>
+                          <option value={12}>12% GST</option>
+                          <option value={5}>5% GST</option>
+                          <option value={28}>28% GST</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1026,9 +1076,13 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
                       className="w-20 p-1 text-right bg-white rounded border border-purple-200 text-xs"
                     />
                   </div>
-                  <div className="flex justify-between">
-                    <span>GST Tax (18%):</span>
-                    <strong className="text-slate-800">₹{taxAmount.toLocaleString('en-IN')}</strong>
+                  <div className="flex justify-between items-center py-0.5">
+                    <span className="flex items-center gap-1">
+                      {taxMode === 'with_tax' ? `GST Tax (${effectiveTaxRate}%):` : 'Tax (Without Tax):'}
+                    </span>
+                    <strong className={taxAmount > 0 ? "text-slate-800" : "text-emerald-700"}>
+                      {taxAmount > 0 ? `₹${taxAmount.toLocaleString('en-IN')}` : '₹0 (Nil)'}
+                    </strong>
                   </div>
                   <div className="pt-2 border-t border-purple-200 flex justify-between text-sm font-bold text-purple-900">
                     <span>Total Estimate:</span>
@@ -1180,8 +1234,8 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span>GST (18%):</span>
-                      <span>₹{selectedJobCardForPrint.taxAmount}</span>
+                      <span>{selectedJobCardForPrint.taxRate > 0 ? `GST (${selectedJobCardForPrint.taxRate}%):` : 'Tax (Without Tax):'}</span>
+                      <span>{selectedJobCardForPrint.taxAmount > 0 ? `₹${selectedJobCardForPrint.taxAmount}` : '₹0 (Nil)'}</span>
                     </div>
                     <div className="pt-1 border-t border-purple-300 flex justify-between font-bold text-sm text-purple-950">
                       <span>Total Estimate:</span>

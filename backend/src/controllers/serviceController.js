@@ -1,6 +1,7 @@
 const Service = require('../models/Service');
 const Bike = require('../models/Bike');
 const Customer = require('../models/Customer');
+const Payment = require('../models/Payment');
 const { getStatus } = require('../config/db');
 const mockStore = require('../utils/mockStore');
 
@@ -13,6 +14,18 @@ const generateJobCardNumber = async () => {
   } else {
     const count = mockStore.services.length;
     return `JC-${year}-${String(count + 1).padStart(4, '0')}`;
+  }
+};
+
+// Helper to generate Invoice Number for advance payments
+const generateInvoiceNumber = async () => {
+  const year = new Date().getFullYear();
+  if (getStatus()) {
+    const count = await Payment.countDocuments();
+    return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+  } else {
+    const count = mockStore.payments.length;
+    return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 };
 
@@ -254,6 +267,25 @@ exports.createService = async (req, res, next) => {
         await Bike.findByIdAndUpdate(bikeId, { currentKilometre: curKm });
       }
 
+      // Automatically create advance Payment receipt if advance payment was collected
+      if (paid > 0) {
+        const invNumber = await generateInvoiceNumber();
+        await Payment.create({
+          invoiceNumber: invNumber,
+          service: service._id,
+          customer: customerId,
+          totalAmount,
+          amountPaid: paid,
+          paymentType: 'Advance',
+          paymentMethod: req.body.paymentMethod || 'UPI',
+          transactionReference: req.body.transactionReference || '',
+          pendingBalance,
+          paymentDate: new Date(),
+          receivedBy: req.user ? req.user.name : 'Admin',
+          notes: 'Advance booking payment',
+        });
+      }
+
       const populated = await Service.findById(service._id)
         .populate('customer', 'name mobile email address')
         .populate('bike', 'brand model registrationNumber currentKilometre fuelType color');
@@ -299,6 +331,26 @@ exports.createService = async (req, res, next) => {
       };
 
       mockStore.services.unshift(newService);
+
+      // Automatically create advance Payment receipt in mockStore if advance was collected
+      if (paid > 0) {
+        const invNumber = await generateInvoiceNumber();
+        mockStore.payments.unshift({
+          _id: 'pay_' + Date.now(),
+          invoiceNumber: invNumber,
+          service: newId,
+          customer: customerId,
+          totalAmount,
+          amountPaid: paid,
+          paymentType: 'Advance',
+          paymentMethod: req.body.paymentMethod || 'UPI',
+          transactionReference: req.body.transactionReference || '',
+          pendingBalance,
+          paymentDate: new Date(),
+          receivedBy: req.user ? req.user.name : 'Admin',
+          notes: 'Advance booking payment',
+        });
+      }
 
       // Update bike kilometre in mock
       const targetBike = mockStore.bikes.find((b) => b._id === bikeId);
