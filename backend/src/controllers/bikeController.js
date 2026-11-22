@@ -4,27 +4,33 @@ const Service = require('../models/Service');
 const { getStatus } = require('../config/db');
 const mockStore = require('../utils/mockStore');
 
-// @desc    Get all bikes
+// @desc    Get all bikes for current workshop
 // @route   GET /api/bikes
 // @access  Private
 exports.getBikes = async (req, res, next) => {
   try {
     const { search, customerId } = req.query;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      let query = {};
-      if (customerId) query.customer = customerId; 
+      let query = { workshop_id: workshopId };
+      if (customerId) query.customer = customerId;
       if (search) {
-        query.$or = [
-          { registrationNumber: { $regex: search, $options: 'i' } },
-          { brand: { $regex: search, $options: 'i' } },
-          { model: { $regex: search, $options: 'i' } },
+        query.$and = [
+          { workshop_id: workshopId },
+          {
+            $or: [
+              { registrationNumber: { $regex: search, $options: 'i' } },
+              { brand: { $regex: search, $options: 'i' } },
+              { model: { $regex: search, $options: 'i' } },
+            ],
+          },
         ];
       }
       const bikes = await Bike.find(query).populate('customer', 'name mobile email').sort({ createdAt: -1 });
       return res.status(200).json({ success: true, count: bikes.length, data: bikes });
     } else {
-      let list = [...mockStore.bikes];
+      let list = mockStore.bikes.filter((b) => b.workshop_id === workshopId);
       if (customerId) {
         list = list.filter((b) => b.customer === customerId);
       }
@@ -38,7 +44,7 @@ exports.getBikes = async (req, res, next) => {
         );
       }
       const populated = list.map((b) => {
-        const c = mockStore.customers.find((cust) => cust._id === b.customer);
+        const c = mockStore.customers.find((cust) => cust._id === b.customer && cust.workshop_id === workshopId);
         return {
           ...b,
           customer: c ? { _id: c._id, name: c.name, mobile: c.mobile, email: c.email } : null,
@@ -57,14 +63,15 @@ exports.getBikes = async (req, res, next) => {
 exports.getBikeById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      const bike = await Bike.findById(id).populate('customer');
+      const bike = await Bike.findOne({ _id: id, workshop_id: workshopId }).populate('customer');
       if (!bike) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
 
-      const services = await Service.find({ bike: id }).sort({ serviceDate: -1 });
+      const services = await Service.find({ bike: id, workshop_id: workshopId }).sort({ serviceDate: -1 });
 
       return res.status(200).json({
         success: true,
@@ -74,19 +81,21 @@ exports.getBikeById = async (req, res, next) => {
         },
       });
     } else {
-      const bike = mockStore.bikes.find((b) => b._id === id);
+      const bike = mockStore.bikes.find((b) => b._id === id && b.workshop_id === workshopId);
       if (!bike) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
 
-      const customer = mockStore.customers.find((c) => c._id === bike.customer);
-      const services = mockStore.services.filter((s) => s.bike === id).sort((a, b) => new Date(b.serviceDate) - new Date(a.serviceDate));
+      const c = mockStore.customers.find((cust) => cust._id === bike.customer && cust.workshop_id === workshopId);
+      const services = mockStore.services
+        .filter((s) => s.bike === id && s.workshop_id === workshopId)
+        .sort((a, b) => new Date(b.serviceDate) - new Date(a.serviceDate));
 
       return res.status(200).json({
         success: true,
         data: {
           ...bike,
-          customer,
+          customer: c,
           serviceHistory: services,
         },
       });
@@ -96,12 +105,14 @@ exports.getBikeById = async (req, res, next) => {
   }
 };
 
-// @desc    Add new bike to existing customer
+// @desc    Add new bike to existing customer in current workshop
 // @route   POST /api/bikes
 // @access  Private
 exports.createBike = async (req, res, next) => {
   try {
     const { customerId, brand, model, registrationNumber, currentKilometre, year, fuelType, color, chassisNumber, engineNumber } = req.body;
+    const workshopId = req.workshopId;
+    const userId = req.userId;
 
     if (!customerId || !brand || !model || !registrationNumber) {
       return res.status(400).json({
@@ -111,12 +122,14 @@ exports.createBike = async (req, res, next) => {
     }
 
     if (getStatus()) {
-      const customer = await Customer.findById(customerId);
+      const customer = await Customer.findOne({ _id: customerId, workshop_id: workshopId });
       if (!customer) {
-        return res.status(404).json({ success: false, message: 'Customer not found' });
+        return res.status(404).json({ success: false, message: 'Customer not found in this workshop' });
       }
 
       const bike = await Bike.create({
+        workshop_id: workshopId,
+        user_id: userId,
         customer: customerId,
         brand,
         model,
@@ -135,14 +148,16 @@ exports.createBike = async (req, res, next) => {
       const populated = await Bike.findById(bike._id).populate('customer', 'name mobile email');
       return res.status(201).json({ success: true, data: populated });
     } else {
-      const customer = mockStore.customers.find((c) => c._id === customerId);
+      const customer = mockStore.customers.find((c) => c._id === customerId && c.workshop_id === workshopId);
       if (!customer) {
-        return res.status(404).json({ success: false, message: 'Customer not found' });
+        return res.status(404).json({ success: false, message: 'Customer not found in this workshop' });
       }
 
       const newId = 'bike_' + Date.now();
       const newBike = {
         _id: newId,
+        workshop_id: workshopId,
+        user_id: userId,
         customer: customerId,
         brand,
         model,
@@ -154,6 +169,7 @@ exports.createBike = async (req, res, next) => {
         chassisNumber: chassisNumber || '',
         engineNumber: engineNumber || '',
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       mockStore.bikes.push(newBike);
@@ -173,17 +189,18 @@ exports.createBike = async (req, res, next) => {
   }
 };
 
-// @desc    Update bike details / current kilometre reading
+// @desc    Update bike
 // @route   PUT /api/bikes/:id
 // @access  Private
 exports.updateBike = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
     const { brand, model, registrationNumber, currentKilometre, year, fuelType, color, chassisNumber, engineNumber } = req.body;
 
     if (getStatus()) {
-      const bike = await Bike.findByIdAndUpdate(
-        id,
+      const bike = await Bike.findOneAndUpdate(
+        { _id: id, workshop_id: workshopId },
         {
           brand,
           model,
@@ -194,19 +211,20 @@ exports.updateBike = async (req, res, next) => {
           color,
           chassisNumber,
           engineNumber,
+          updatedAt: new Date(),
         },
         { new: true, runValidators: true }
       ).populate('customer', 'name mobile email');
 
       if (!bike) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
 
       return res.status(200).json({ success: true, data: bike });
     } else {
-      const index = mockStore.bikes.findIndex((b) => b._id === id);
+      const index = mockStore.bikes.findIndex((b) => b._id === id && b.workshop_id === workshopId);
       if (index === -1) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
 
       mockStore.bikes[index] = {
@@ -220,9 +238,10 @@ exports.updateBike = async (req, res, next) => {
         color: color !== undefined ? color : mockStore.bikes[index].color,
         chassisNumber: chassisNumber !== undefined ? chassisNumber : mockStore.bikes[index].chassisNumber,
         engineNumber: engineNumber !== undefined ? engineNumber : mockStore.bikes[index].engineNumber,
+        updatedAt: new Date(),
       };
 
-      const c = mockStore.customers.find((cust) => cust._id === mockStore.bikes[index].customer);
+      const c = mockStore.customers.find((cust) => cust._id === mockStore.bikes[index].customer && cust.workshop_id === workshopId);
       return res.status(200).json({
         success: true,
         data: {
@@ -242,25 +261,37 @@ exports.updateBike = async (req, res, next) => {
 exports.deleteBike = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      const bike = await Bike.findByIdAndDelete(id);
+      const bike = await Bike.findOneAndDelete({ _id: id, workshop_id: workshopId });
       if (!bike) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
-      await Customer.findByIdAndUpdate(bike.customer, { $pull: { bikes: id } });
-      return res.status(200).json({ success: true, message: 'Bike removed successfully' });
+
+      // Remove from customer's bikes array
+      await Customer.updateOne(
+        { _id: bike.customer, workshop_id: workshopId },
+        { $pull: { bikes: id } }
+      );
+
+      return res.status(200).json({ success: true, message: 'Bike deleted successfully' });
     } else {
-      const index = mockStore.bikes.findIndex((b) => b._id === id);
+      const index = mockStore.bikes.findIndex((b) => b._id === id && b.workshop_id === workshopId);
       if (index === -1) {
-        return res.status(404).json({ success: false, message: 'Bike not found' });
+        return res.status(404).json({ success: false, message: 'Bike not found in this workshop' });
       }
-      const [deleted] = mockStore.bikes.splice(index, 1);
-      const cust = mockStore.customers.find((c) => c._id === deleted.customer);
-      if (cust && cust.bikes) {
-        cust.bikes = cust.bikes.filter((bikeId) => bikeId !== id);
+
+      const customerId = mockStore.bikes[index].customer;
+      mockStore.bikes.splice(index, 1);
+
+      // Remove from mock customer's bike array
+      const customer = mockStore.customers.find((c) => c._id === customerId && c.workshop_id === workshopId);
+      if (customer && customer.bikes) {
+        customer.bikes = customer.bikes.filter((bId) => bId !== id);
       }
-      return res.status(200).json({ success: true, message: 'Bike removed successfully' });
+
+      return res.status(200).json({ success: true, message: 'Bike deleted successfully' });
     }
   } catch (err) {
     next(err);

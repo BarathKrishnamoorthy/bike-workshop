@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  user_id: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
   name: {
     type: String,
     required: [true, 'Please provide user name'],
@@ -22,26 +28,44 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'manager', 'mechanic'],
-    default: 'admin',
+    enum: ['super_admin', 'owner', 'admin', 'manager', 'mechanic'],
+    default: 'owner',
+  },
+  phone_number: {
+    type: String,
+    default: '',
   },
   phone: {
     type: String,
     default: '',
   },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active',
+  },
+  workshop_id: {
+    type: String,
+    default: null,
+    index: true,
+  },
   workshopName: {
     type: String,
-    default: 'SpeedyWheels Bike Workshop',
+    default: '',
   },
   address: {
     type: String,
-    default: '108 Workshop Road, Auto Hub, Bangalore - 560001',
+    default: '',
   },
   gstNumber: {
     type: String,
-    default: '29ABCDE1234F1Z5',
+    default: '',
   },
   createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
     type: Date,
     default: Date.now,
   },

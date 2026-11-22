@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
-import { Bike, ShieldCheck, Lock, Mail, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Bike, ShieldCheck, Lock, Mail, ArrowRight, CheckCircle2, Building2, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+
   const [email, setEmail] = useState('admin@bikeworkshop.com');
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [registeredEmailNotice, setRegisteredEmailNotice] = useState('');
+
+  useEffect(() => {
+    if (location.state?.registeredEmail) {
+      setEmail(location.state.registeredEmail);
+      setPassword('');
+      setRegisteredEmailNotice(`Registration successful! Please sign in with ${location.state.registeredEmail}`);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,57 +28,107 @@ export default function LoginPage() {
     setLoading(true);
 
     const res = await login(email, password);
-    if (!res.success) {
+    if (res.success) {
+      const origin = location.state?.from?.pathname || '/dashboard';
+      navigate(origin, { replace: true });
+    } else {
       setError(res.message);
     }
     setLoading(false);
   };
 
-  const handleDemoLogin = async () => {
-    setEmail('admin@bikeworkshop.com');
-    setPassword('admin123');
+  const handleQuickTenantLogin = async (demoEmail, demoPass) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
     setError('');
     setLoading(true);
-    const res = await login('admin@bikeworkshop.com', 'admin123');
-    if (!res.success) {
+    const res = await login(demoEmail, demoPass);
+    if (res.success) {
+      navigate('/dashboard', { replace: true });
+    } else {
       setError(res.message);
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#4c1d95] via-[#581c87] to-[#1e1b4b] flex items-center justify-center p-3 sm:p-6">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-purple-200/50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-indigo-950 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-purple-200/50">
         {/* Brand Icon & Heading */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center mx-auto mb-3 shadow-inner">
-            <Bike className="w-8 h-8 sm:w-9 sm:h-9" />
+          <div className="w-16 h-16 rounded-2xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <Bike className="w-9 h-9" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">SpeedyWheels Portal</h1>
-          <p className="text-slate-500 text-xs mt-0.5">Bike Workshop Management System</p>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">SpeedyWheels SaaS</h1>
+          <p className="text-slate-500 text-xs mt-1">Multi-Tenant Bike Workshop Management Portal</p>
         </div>
 
-        {/* Demo Login Quick Access Banner */}
-        <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-purple-50/80 border border-purple-200/80">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-              Demo Access Credentials
-            </span>
-          </div>
-          <div className="text-xs text-purple-900/80 font-mono space-y-0.5">
-            <div>User: <strong>admin@bikeworkshop.com</strong></div>
-            <div>Pass: <strong>admin123</strong></div>
-          </div>
+        {/* Tab switch between Sign In and Register */}
+        <div className="flex bg-purple-50 p-1 rounded-2xl border border-purple-200/70 mb-5">
           <button
             type="button"
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="w-full mt-2.5 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            className="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-purple-600 text-white shadow-xs"
           >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>One-Click Demo Admin Login</span>
+            Sign In
           </button>
+          <button
+            type="button"
+            onClick={() => navigate('/register')}
+            className="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-purple-900 hover:text-purple-700"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Register Workshop</span>
+          </button>
+        </div>
+
+        {/* Post-Registration Success Notice */}
+        {registeredEmailNotice && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{registeredEmailNotice}</span>
+          </div>
+        )}
+
+        {/* Multi-Tenant Demo Access Cards */}
+        <div className="mb-5 p-4 rounded-2xl bg-purple-50/80 border border-purple-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-purple-600" />
+              SaaS Multi-Tenant Demo Accounts
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {/* Workshop 1 */}
+            <button
+              type="button"
+              onClick={() => handleQuickTenantLogin('admin@bikeworkshop.com', 'admin123')}
+              disabled={loading}
+              className="p-2.5 bg-white hover:bg-purple-100/60 border border-purple-200 text-left rounded-xl transition-all shadow-2xs hover:border-purple-400 group"
+            >
+              <div className="text-[10px] font-bold text-purple-700 uppercase tracking-tight flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-purple-600" />
+                WS-1001
+              </div>
+              <div className="text-xs font-bold text-slate-800 truncate">SpeedyWheels</div>
+              <div className="text-[10px] text-slate-500 font-mono truncate">admin@bikeworkshop.com</div>
+            </button>
+
+            {/* Workshop 2 */}
+            <button
+              type="button"
+              onClick={() => handleQuickTenantLogin('owner@apexmotohub.com', 'apex123')}
+              disabled={loading}
+              className="p-2.5 bg-white hover:bg-purple-100/60 border border-purple-200 text-left rounded-xl transition-all shadow-2xs hover:border-purple-400 group"
+            >
+              <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-indigo-600" />
+                WS-1002
+              </div>
+              <div className="text-xs font-bold text-slate-800 truncate">Apex Moto Hub</div>
+              <div className="text-[10px] text-slate-500 font-mono truncate">owner@apexmotohub.com</div>
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -75,7 +138,7 @@ export default function LoginPage() {
         )}
 
         {/* Standard Form */}
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">Email Address</label>
             <div className="relative">
@@ -86,7 +149,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@workshop.com"
-                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden transition-all"
+                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden"
               />
             </div>
           </div>
@@ -101,7 +164,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden transition-all"
+                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-purple-200 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-hidden"
               />
             </div>
           </div>
@@ -122,17 +185,23 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Footer with Powered by RB NextWave */}
-        <div className="mt-6 pt-4 border-t border-purple-100 flex flex-col items-center justify-center space-y-1 text-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[11px] font-medium text-slate-500">
-            <span>Powered by</span>
-            <span className="font-extrabold text-purple-900 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-purple-600" />
-              RB NextWave
-            </span>
-          </div>
-          <div className="text-[10px] text-slate-400">
-            SpeedyWheels Management System • Secure JWT Authentication
+        <div className="mt-6 pt-4 border-t border-purple-50 text-center">
+          <p className="text-xs text-slate-500">
+            Need a separate account for your garage?{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/register')}
+              className="text-purple-700 font-bold hover:underline"
+            >
+              Register your workshop
+            </button>
+          </p>
+        </div>
+
+        <div className="mt-4 text-center text-slate-400 text-[11px] space-y-1">
+          <div>Multi-Tenant SaaS Architecture • Isolated Tenant Databases</div>
+          <div className="text-purple-600 font-semibold text-xs pt-1">
+            Powered by RB Nextwave
           </div>
         </div>
       </div>

@@ -4,27 +4,28 @@ const Customer = require('../models/Customer');
 const { getStatus } = require('../config/db');
 const mockStore = require('../utils/mockStore');
 
-// Helper to generate Invoice Number
-const generateInvoiceNumber = async () => {
+// Helper to generate Invoice Number per workshop
+const generateInvoiceNumber = async (workshopId) => {
   const year = new Date().getFullYear();
   if (getStatus()) {
-    const count = await Payment.countDocuments();
+    const count = await Payment.countDocuments({ workshop_id: workshopId });
     return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
   } else {
-    const count = mockStore.payments.length;
+    const count = mockStore.payments.filter((p) => p.workshop_id === workshopId).length;
     return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 };
 
-// @desc    Get all payments
+// @desc    Get all payments for current workshop
 // @route   GET /api/payments
 // @access  Private
 exports.getPayments = async (req, res, next) => {
   try {
     const { serviceId, customerId, paymentMethod, paymentType, search, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      let query = {};
+      let query = { workshop_id: workshopId };
       if (serviceId) query.service = serviceId;
       if (customerId) query.customer = customerId;
       if (paymentMethod) query.paymentMethod = paymentMethod;
@@ -33,6 +34,7 @@ exports.getPayments = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         query.customer = { $in: matchingCustomers.map((c) => c._id) };
@@ -40,6 +42,7 @@ exports.getPayments = async (req, res, next) => {
 
       if (search) {
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           $or: [
             { name: { $regex: search, $options: 'i' } },
             { mobile: { $regex: search, $options: 'i' } },
@@ -47,10 +50,15 @@ exports.getPayments = async (req, res, next) => {
         }).select('_id');
         const customerIds = matchingCustomers.map((c) => c._id);
 
-        query.$or = [
-          { invoiceNumber: { $regex: search, $options: 'i' } },
-          { transactionReference: { $regex: search, $options: 'i' } },
-          { customer: { $in: customerIds } },
+        query.$and = [
+          { workshop_id: workshopId },
+          {
+            $or: [
+              { invoiceNumber: { $regex: search, $options: 'i' } },
+              { transactionReference: { $regex: search, $options: 'i' } },
+              { customer: { $in: customerIds } },
+            ],
+          },
         ];
       }
 
@@ -64,7 +72,7 @@ exports.getPayments = async (req, res, next) => {
 
       return res.status(200).json({ success: true, count: payments.length, data: payments });
     } else {
-      let list = [...mockStore.payments];
+      let list = mockStore.payments.filter((p) => p.workshop_id === workshopId);
       if (serviceId) list = list.filter((p) => p.service === serviceId);
       if (customerId) list = list.filter((p) => p.customer === customerId);
       if (paymentMethod) list = list.filter((p) => p.paymentMethod === paymentMethod);
@@ -73,7 +81,7 @@ exports.getPayments = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         list = list.filter((p) => {
-          const c = mockStore.customers.find((cust) => cust._id === p.customer);
+          const c = mockStore.customers.find((cust) => cust._id === p.customer && cust.workshop_id === workshopId);
           return c && c.mobile.replace(/\D/g, '').includes(cleanMobile);
         });
       }
@@ -81,7 +89,7 @@ exports.getPayments = async (req, res, next) => {
       if (search) {
         const q = search.toLowerCase();
         list = list.filter((p) => {
-          const c = mockStore.customers.find((cust) => cust._id === p.customer);
+          const c = mockStore.customers.find((cust) => cust._id === p.customer && cust.workshop_id === workshopId);
           const custMatch = c && (c.name.toLowerCase().includes(q) || c.mobile.includes(q));
           const invMatch = p.invoiceNumber.toLowerCase().includes(q);
           const refMatch = p.transactionReference && p.transactionReference.toLowerCase().includes(q);
@@ -90,11 +98,11 @@ exports.getPayments = async (req, res, next) => {
       }
 
       const populated = list.map((p) => {
-        const c = mockStore.customers.find((cust) => cust._id === p.customer);
-        const s = mockStore.services.find((srv) => srv._id === p.service);
+        const c = mockStore.customers.find((cust) => cust._id === p.customer && cust.workshop_id === workshopId);
+        const s = mockStore.services.find((srv) => srv._id === p.service && srv.workshop_id === workshopId);
         let b = null;
         if (s) {
-          b = mockStore.bikes.find((bk) => bk._id === s.bike);
+          b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
         }
         return {
           ...p,
@@ -116,9 +124,10 @@ exports.getPayments = async (req, res, next) => {
 exports.getPaymentById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      const payment = await Payment.findById(id)
+      const payment = await Payment.findOne({ _id: id, workshop_id: workshopId })
         .populate('customer', 'name mobile email address')
         .populate({
           path: 'service',
@@ -126,19 +135,19 @@ exports.getPaymentById = async (req, res, next) => {
         });
 
       if (!payment) {
-        return res.status(404).json({ success: false, message: 'Payment record not found' });
+        return res.status(404).json({ success: false, message: 'Payment record not found in this workshop' });
       }
 
       return res.status(200).json({ success: true, data: payment });
     } else {
-      const payment = mockStore.payments.find((p) => p._id === id);
+      const payment = mockStore.payments.find((p) => p._id === id && p.workshop_id === workshopId);
       if (!payment) {
-        return res.status(404).json({ success: false, message: 'Payment record not found' });
+        return res.status(404).json({ success: false, message: 'Payment record not found in this workshop' });
       }
 
-      const c = mockStore.customers.find((cust) => cust._id === payment.customer);
-      const s = mockStore.services.find((srv) => srv._id === payment.service);
-      const b = s ? mockStore.bikes.find((bk) => bk._id === s.bike) : null;
+      const c = mockStore.customers.find((cust) => cust._id === payment.customer && cust.workshop_id === workshopId);
+      const s = mockStore.services.find((srv) => srv._id === payment.service && srv.workshop_id === workshopId);
+      const b = s ? mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId) : null;
 
       return res.status(200).json({
         success: true,
@@ -169,6 +178,9 @@ exports.createPayment = async (req, res, next) => {
       notes,
     } = req.body;
 
+    const workshopId = req.workshopId;
+    const userId = req.userId;
+
     if (!serviceId || !amountPaid || Number(amountPaid) <= 0) {
       return res.status(400).json({
         success: false,
@@ -177,12 +189,12 @@ exports.createPayment = async (req, res, next) => {
     }
 
     const payAmt = Number(amountPaid);
-    const invoiceNumber = await generateInvoiceNumber();
+    const invoiceNumber = await generateInvoiceNumber(workshopId);
 
     if (getStatus()) {
-      const service = await Service.findById(serviceId);
+      const service = await Service.findOne({ _id: serviceId, workshop_id: workshopId });
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+        return res.status(404).json({ success: false, message: 'Service not found in this workshop' });
       }
 
       const totalAmount = service.totalAmount;
@@ -190,7 +202,6 @@ exports.createPayment = async (req, res, next) => {
       const newPaidTotal = previouslyPaid + payAmt;
       const newPendingBalance = Math.max(0, totalAmount - newPaidTotal);
 
-      // Determine payment status on service
       let newPaymentStatus = 'Pending';
       if (newPaidTotal >= totalAmount && totalAmount > 0) {
         newPaymentStatus = 'Paid';
@@ -198,13 +209,15 @@ exports.createPayment = async (req, res, next) => {
         newPaymentStatus = 'Partial';
       }
 
-      // Update Service record
       service.paidAmount = newPaidTotal;
       service.pendingBalance = newPendingBalance;
       service.paymentStatus = newPaymentStatus;
+      service.updatedAt = new Date();
       await service.save();
 
       const payment = await Payment.create({
+        workshop_id: workshopId,
+        user_id: userId,
         invoiceNumber,
         service: serviceId,
         customer: customerId || service.customer,
@@ -228,9 +241,9 @@ exports.createPayment = async (req, res, next) => {
 
       return res.status(201).json({ success: true, data: populated });
     } else {
-      const service = mockStore.services.find((s) => s._id === serviceId);
+      const service = mockStore.services.find((s) => s._id === serviceId && s.workshop_id === workshopId);
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+        return res.status(404).json({ success: false, message: 'Service not found in this workshop' });
       }
 
       const totalAmount = service.totalAmount;
@@ -248,10 +261,13 @@ exports.createPayment = async (req, res, next) => {
       service.paidAmount = newPaidTotal;
       service.pendingBalance = newPendingBalance;
       service.paymentStatus = newPaymentStatus;
+      service.updatedAt = new Date();
 
       const newId = 'pay_' + Date.now();
       const newPayment = {
         _id: newId,
+        workshop_id: workshopId,
+        user_id: userId,
         invoiceNumber,
         service: serviceId,
         customer: customerId || service.customer,
@@ -265,12 +281,13 @@ exports.createPayment = async (req, res, next) => {
         receivedBy: req.user ? req.user.name : 'Admin',
         notes: notes || '',
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       mockStore.payments.unshift(newPayment);
 
-      const c = mockStore.customers.find((cust) => cust._id === newPayment.customer);
-      const b = mockStore.bikes.find((bk) => bk._id === service.bike);
+      const c = mockStore.customers.find((cust) => cust._id === newPayment.customer && cust.workshop_id === workshopId);
+      const b = mockStore.bikes.find((bk) => bk._id === service.bike && bk.workshop_id === workshopId);
 
       return res.status(201).json({
         success: true,

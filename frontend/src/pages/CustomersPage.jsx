@@ -466,8 +466,8 @@ export default function CustomersPage({ onBookServiceForBike, onLookupPhone }) {
 
       {/* Customer Details Drawer / Modal */}
       {selectedCustomer && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-purple-100 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] flex flex-col shadow-2xl border border-purple-100 overflow-hidden my-auto">
             <div className="p-5 border-b border-purple-100 bg-gradient-to-r from-purple-800 to-indigo-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">{selectedCustomer.name}</h3>
@@ -607,16 +607,16 @@ export default function CustomersPage({ onBookServiceForBike, onLookupPhone }) {
 
       {/* Add Customer Modal with Phone Duplicate Prevention */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-purple-100 overflow-hidden">
-            <div className="p-5 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between">
-              <h3 className="font-bold text-lg">Register Customer & Bike</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-purple-200 hover:text-white">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full shadow-2xl border border-purple-100 overflow-hidden my-auto flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh]">
+            <div className="p-4 sm:p-5 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-base sm:text-lg">Register Customer & Bike</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-purple-200 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateCustomer} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleCreateCustomer} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-600 block mb-1">Mobile Number * (Unique Key)</label>
@@ -835,16 +835,16 @@ export default function CustomersPage({ onBookServiceForBike, onLookupPhone }) {
 
       {/* Add Additional Bike Modal */}
       {showAddBikeModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-purple-100 overflow-hidden">
-            <div className="p-4 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-purple-100 overflow-hidden my-auto flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh]">
+            <div className="p-4 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-base">Register Additional Bike</h3>
-              <button onClick={() => setShowAddBikeModal(false)} className="text-purple-200 hover:text-white">
+              <button onClick={() => setShowAddBikeModal(false)} className="text-purple-200 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddBike} className="p-5 space-y-3">
+            <form onSubmit={handleAddBike} className="p-4 sm:p-5 space-y-3 overflow-y-auto flex-1">
               <div>
                 <label className="text-xs font-semibold text-slate-600 block mb-1">Brand *</label>
                 <select

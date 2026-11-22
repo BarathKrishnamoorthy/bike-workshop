@@ -5,48 +5,53 @@ const Payment = require('../models/Payment');
 const { getStatus } = require('../config/db');
 const mockStore = require('../utils/mockStore');
 
-// Helper to generate next Job Card number
-const generateJobCardNumber = async () => {
+// Helper to generate next Job Card number per workshop
+const generateJobCardNumber = async (workshopId) => {
   const year = new Date().getFullYear();
   if (getStatus()) {
-    const count = await Service.countDocuments();
+    const count = await Service.countDocuments({ workshop_id: workshopId });
     return `JC-${year}-${String(count + 1).padStart(4, '0')}`;
   } else {
-    const count = mockStore.services.length;
+    const count = mockStore.services.filter((s) => s.workshop_id === workshopId).length;
     return `JC-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 };
 
 // Helper to generate Invoice Number for advance payments
-const generateInvoiceNumber = async () => {
+const generateInvoiceNumber = async (workshopId = null) => {
   const year = new Date().getFullYear();
   if (getStatus()) {
-    const count = await Payment.countDocuments();
+    const filter = workshopId ? { workshop_id: workshopId } : {};
+    const count = await Payment.countDocuments(filter);
     return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
   } else {
-    const count = mockStore.payments.length;
+    const count = workshopId
+      ? mockStore.payments.filter((p) => p.workshop_id === workshopId).length
+      : mockStore.payments.length;
     return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 };
 
-// @desc    Get all services / job cards
+// @desc    Get all services / job cards for current workshop
 // @route   GET /api/services
 // @access  Private
 exports.getServices = async (req, res, next) => {
   try {
     const { status, customerId, bikeId, paymentStatus, search, date, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      let query = {};
+      let query = { workshop_id: workshopId };
       if (status) query.status = status;
       if (customerId) query.customer = customerId;
       if (bikeId) query.bike = bikeId;
       if (paymentStatus) query.paymentStatus = paymentStatus;
 
-      // Filter by customer mobile
+      // Filter by customer mobile within workshop
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         const customerIds = matchingCustomers.map((c) => c._id);
@@ -54,8 +59,8 @@ exports.getServices = async (req, res, next) => {
       }
 
       if (search) {
-        // Also check if search query matches customer name or mobile
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           $or: [
             { name: { $regex: search, $options: 'i' } },
             { mobile: { $regex: search, $options: 'i' } },
@@ -63,12 +68,29 @@ exports.getServices = async (req, res, next) => {
         }).select('_id');
         const customerIds = matchingCustomers.map((c) => c._id);
 
-        query.$or = [
-          { jobCardNumber: { $regex: search, $options: 'i' } },
-          { serviceType: { $regex: search, $options: 'i' } },
-          { customer: { $in: customerIds } },
+        const matchingBikes = await Bike.find({
+          workshop_id: workshopId,
+          $or: [
+            { registrationNumber: { $regex: search, $options: 'i' } },
+            { brand: { $regex: search, $options: 'i' } },
+            { model: { $regex: search, $options: 'i' } },
+          ],
+        }).select('_id');
+        const bikeIds = matchingBikes.map((b) => b._id);
+
+        query.$and = [
+          { workshop_id: workshopId },
+          {
+            $or: [
+              { jobCardNumber: { $regex: search, $options: 'i' } },
+              { serviceType: { $regex: search, $options: 'i' } },
+              { customer: { $in: customerIds } },
+              { bike: { $in: bikeIds } },
+            ],
+          },
         ];
       }
+
       if (date) {
         const start = new Date(date);
         start.setHours(0, 0, 0, 0);
@@ -84,7 +106,7 @@ exports.getServices = async (req, res, next) => {
 
       return res.status(200).json({ success: true, count: services.length, data: services });
     } else {
-      let list = [...mockStore.services];
+      let list = mockStore.services.filter((s) => s.workshop_id === workshopId);
       if (status) list = list.filter((s) => s.status === status);
       if (customerId) list = list.filter((s) => s.customer === customerId);
       if (bikeId) list = list.filter((s) => s.bike === bikeId);
@@ -93,7 +115,7 @@ exports.getServices = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         list = list.filter((s) => {
-          const c = mockStore.customers.find((cust) => cust._id === s.customer);
+          const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
           return c && c.mobile.replace(/\D/g, '').includes(cleanMobile);
         });
       }
@@ -101,8 +123,8 @@ exports.getServices = async (req, res, next) => {
       if (search) {
         const q = search.toLowerCase();
         list = list.filter((s) => {
-          const c = mockStore.customers.find((cust) => cust._id === s.customer);
-          const b = mockStore.bikes.find((bk) => bk._id === s.bike);
+          const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+          const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
           const customerMatch = c && (c.name.toLowerCase().includes(q) || c.mobile.includes(q));
           const bikeMatch = b && (b.registrationNumber.toLowerCase().includes(q) || b.brand.toLowerCase().includes(q));
           const cardMatch = s.jobCardNumber.toLowerCase().includes(q) || s.serviceType.toLowerCase().includes(q);
@@ -110,14 +132,15 @@ exports.getServices = async (req, res, next) => {
           return customerMatch || bikeMatch || cardMatch || compMatch;
         });
       }
+
       if (date) {
         const targetDate = new Date(date).toDateString();
         list = list.filter((s) => new Date(s.serviceDate).toDateString() === targetDate);
       }
 
       const populated = list.map((s) => {
-        const c = mockStore.customers.find((cust) => cust._id === s.customer);
-        const b = mockStore.bikes.find((bk) => bk._id === s.bike);
+        const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+        const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
         return {
           ...s,
           customer: c ? { _id: c._id, name: c.name, mobile: c.mobile, email: c.email, address: c.address } : null,
@@ -138,25 +161,26 @@ exports.getServices = async (req, res, next) => {
 exports.getServiceById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      const service = await Service.findById(id)
+      const service = await Service.findOne({ _id: id, workshop_id: workshopId })
         .populate('customer', 'name mobile email address')
         .populate('bike', 'brand model registrationNumber currentKilometre fuelType color chassisNumber engineNumber');
 
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service job card not found' });
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
       return res.status(200).json({ success: true, data: service });
     } else {
-      const service = mockStore.services.find((s) => s._id === id);
+      const service = mockStore.services.find((s) => s._id === id && s.workshop_id === workshopId);
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service job card not found' });
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
-      const c = mockStore.customers.find((cust) => cust._id === service.customer);
-      const b = mockStore.bikes.find((bk) => bk._id === service.bike);
+      const c = mockStore.customers.find((cust) => cust._id === service.customer && cust.workshop_id === workshopId);
+      const b = mockStore.bikes.find((bk) => bk._id === service.bike && bk.workshop_id === workshopId);
 
       return res.status(200).json({
         success: true,
@@ -198,6 +222,9 @@ exports.createService = async (req, res, next) => {
       notes,
     } = req.body;
 
+    const workshopId = req.workshopId;
+    const userId = req.userId;
+
     if (!customerId || !bikeId) {
       return res.status(400).json({
         success: false,
@@ -205,7 +232,7 @@ exports.createService = async (req, res, next) => {
       });
     }
 
-    const jobCardNumber = await generateJobCardNumber();
+    const jobCardNumber = await generateJobCardNumber(workshopId);
 
     // Calculate totals
     const parts = Array.isArray(spareParts) ? spareParts : [];
@@ -228,13 +255,20 @@ exports.createService = async (req, res, next) => {
       paymentStatus = 'Partial';
     }
 
-    // Default next service calculations if not specified
     const curKm = Number(currentKilometre) || 0;
     const calculatedNextKm = nextServiceKilometre ? Number(nextServiceKilometre) : curKm + 3000;
     const calculatedNextDate = nextServiceDate ? new Date(nextServiceDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     if (getStatus()) {
+      // Validate customer & bike belong to this workshop
+      const cust = await Customer.findOne({ _id: customerId, workshop_id: workshopId });
+      if (!cust) {
+        return res.status(404).json({ success: false, message: 'Selected customer not found in this workshop' });
+      }
+
       const service = await Service.create({
+        workshop_id: workshopId,
+        user_id: userId,
         jobCardNumber,
         customer: customerId,
         bike: bikeId,
@@ -258,13 +292,11 @@ exports.createService = async (req, res, next) => {
         nextServiceKilometre: calculatedNextKm,
         status: status || 'Booked',
         paymentStatus,
-        assignedMechanic: assignedMechanic || 'Chief Mechanic',
         notes: notes || '',
       });
 
-      // Update bike kilometre if provided and higher
       if (curKm > 0) {
-        await Bike.findByIdAndUpdate(bikeId, { currentKilometre: curKm });
+        await Bike.findOneAndUpdate({ _id: bikeId, workshop_id: workshopId }, { currentKilometre: curKm });
       }
 
       // Automatically create advance Payment receipt if advance payment was collected
@@ -292,9 +324,16 @@ exports.createService = async (req, res, next) => {
 
       return res.status(201).json({ success: true, data: populated });
     } else {
+      const cust = mockStore.customers.find((c) => c._id === customerId && c.workshop_id === workshopId);
+      if (!cust) {
+        return res.status(404).json({ success: false, message: 'Selected customer not found in this workshop' });
+      }
+
       const newId = 'srv_' + Date.now();
       const newService = {
         _id: newId,
+        workshop_id: workshopId,
+        user_id: userId,
         jobCardNumber,
         customer: customerId,
         bike: bikeId,
@@ -328,15 +367,18 @@ exports.createService = async (req, res, next) => {
         assignedMechanic: assignedMechanic || 'Chief Mechanic',
         notes: notes || '',
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       mockStore.services.unshift(newService);
 
       // Automatically create advance Payment receipt in mockStore if advance was collected
       if (paid > 0) {
-        const invNumber = await generateInvoiceNumber();
+        const invNumber = await generateInvoiceNumber(workshopId);
         mockStore.payments.unshift({
           _id: 'pay_' + Date.now(),
+          workshop_id: workshopId,
+          user_id: req.userId,
           invoiceNumber: invNumber,
           service: newId,
           customer: customerId,
@@ -353,18 +395,16 @@ exports.createService = async (req, res, next) => {
       }
 
       // Update bike kilometre in mock
-      const targetBike = mockStore.bikes.find((b) => b._id === bikeId);
+      const targetBike = mockStore.bikes.find((b) => b._id === bikeId && b.workshop_id === workshopId);
       if (targetBike && curKm > 0) {
         targetBike.currentKilometre = curKm;
       }
-
-      const c = mockStore.customers.find((cust) => cust._id === customerId);
 
       return res.status(201).json({
         success: true,
         data: {
           ...newService,
-          customer: c ? { _id: c._id, name: c.name, mobile: c.mobile, email: c.email, address: c.address } : null,
+          customer: { _id: cust._id, name: cust.name, mobile: cust.mobile, email: cust.email, address: cust.address },
           bike: targetBike ? { _id: targetBike._id, brand: targetBike.brand, model: targetBike.model, registrationNumber: targetBike.registrationNumber, currentKilometre: targetBike.currentKilometre, fuelType: targetBike.fuelType, color: targetBike.color } : null,
         },
       });
@@ -380,6 +420,7 @@ exports.createService = async (req, res, next) => {
 exports.updateService = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
     const {
       serviceDate,
       deliveryDate,
@@ -399,7 +440,6 @@ exports.updateService = async (req, res, next) => {
       notes,
     } = req.body;
 
-    // Recalculate totals
     const parts = Array.isArray(spareParts) ? spareParts : [];
     const labour = Array.isArray(labourCharges) ? labourCharges : [];
     const sparePartsTotal = parts.reduce((acc, p) => acc + (Number(p.quantity || 1) * Number(p.unitPrice || 0)), 0);
@@ -443,25 +483,30 @@ exports.updateService = async (req, res, next) => {
         paymentStatus,
         assignedMechanic,
         notes,
+        updatedAt: new Date(),
       };
 
-      const service = await Service.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+      const service = await Service.findOneAndUpdate(
+        { _id: id, workshop_id: workshopId },
+        updateData,
+        { new: true, runValidators: true }
+      )
         .populate('customer', 'name mobile email address')
         .populate('bike', 'brand model registrationNumber currentKilometre fuelType color');
 
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service job card not found' });
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
       if (currentKilometre && service.bike) {
-        await Bike.findByIdAndUpdate(service.bike._id, { currentKilometre });
+        await Bike.findOneAndUpdate({ _id: service.bike._id, workshop_id: workshopId }, { currentKilometre });
       }
 
       return res.status(200).json({ success: true, data: service });
     } else {
-      const index = mockStore.services.findIndex((s) => s._id === id);
+      const index = mockStore.services.findIndex((s) => s._id === id && s.workshop_id === workshopId);
       if (index === -1) {
-        return res.status(404).json({ success: false, message: 'Service job card not found' });
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
       const existing = mockStore.services[index];
@@ -489,17 +534,18 @@ exports.updateService = async (req, res, next) => {
         paymentStatus,
         assignedMechanic: assignedMechanic || existing.assignedMechanic,
         notes: notes !== undefined ? notes : existing.notes,
+        updatedAt: new Date(),
       };
 
       mockStore.services[index] = updated;
 
       if (currentKilometre) {
-        const bk = mockStore.bikes.find((b) => b._id === updated.bike);
+        const bk = mockStore.bikes.find((b) => b._id === updated.bike && b.workshop_id === workshopId);
         if (bk) bk.currentKilometre = Number(currentKilometre);
       }
 
-      const c = mockStore.customers.find((cust) => cust._id === updated.customer);
-      const b = mockStore.bikes.find((bk) => bk._id === updated.bike);
+      const c = mockStore.customers.find((cust) => cust._id === updated.customer && cust.workshop_id === workshopId);
+      const b = mockStore.bikes.find((bk) => bk._id === updated.bike && bk.workshop_id === workshopId);
 
       return res.status(200).json({
         success: true,
@@ -515,47 +561,59 @@ exports.updateService = async (req, res, next) => {
   }
 };
 
-// @desc    Update service status (quick action: Booked -> In Progress -> Ready -> Delivered)
+// @desc    Update service status only
 // @route   PATCH /api/services/:id/status
 // @access  Private
 exports.updateServiceStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const workshopId = req.workshopId;
 
-    const validStatuses = ['Booked', 'In Progress', 'Ready', 'Delivered', 'Cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
-      });
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required' });
     }
 
     if (getStatus()) {
-      const service = await Service.findByIdAndUpdate(id, { status }, { new: true })
+      const updatePayload = { status, updatedAt: new Date() };
+      if (status === 'Delivered') {
+        updatePayload.deliveryDate = new Date();
+      }
+
+      const service = await Service.findOneAndUpdate(
+        { _id: id, workshop_id: workshopId },
+        updatePayload,
+        { new: true }
+      )
         .populate('customer', 'name mobile email')
         .populate('bike', 'brand model registrationNumber');
 
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
       return res.status(200).json({ success: true, data: service });
     } else {
-      const service = mockStore.services.find((s) => s._id === id);
-      if (!service) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+      const index = mockStore.services.findIndex((s) => s._id === id && s.workshop_id === workshopId);
+      if (index === -1) {
+        return res.status(404).json({ success: false, message: 'Service job card not found in this workshop' });
       }
 
-      service.status = status;
-      const c = mockStore.customers.find((cust) => cust._id === service.customer);
-      const b = mockStore.bikes.find((bk) => bk._id === service.bike);
+      mockStore.services[index].status = status;
+      mockStore.services[index].updatedAt = new Date();
+      if (status === 'Delivered') {
+        mockStore.services[index].deliveryDate = new Date();
+      }
+
+      const s = mockStore.services[index];
+      const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+      const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
 
       return res.status(200).json({
         success: true,
         data: {
-          ...service,
-          customer: c ? { _id: c._id, name: c.name, mobile: c.mobile } : null,
+          ...s,
+          customer: c ? { _id: c._id, name: c.name, mobile: c.mobile, email: c.email } : null,
           bike: b ? { _id: b._id, brand: b.brand, model: b.model, registrationNumber: b.registrationNumber } : null,
         },
       });
@@ -571,20 +629,22 @@ exports.updateServiceStatus = async (req, res, next) => {
 exports.deleteService = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const workshopId = req.workshopId;
 
     if (getStatus()) {
-      const service = await Service.findByIdAndDelete(id);
+      const service = await Service.findOneAndDelete({ _id: id, workshop_id: workshopId });
       if (!service) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+        return res.status(404).json({ success: false, message: 'Service not found in this workshop' });
       }
-      return res.status(200).json({ success: true, message: 'Service job card deleted successfully' });
+      return res.status(200).json({ success: true, message: 'Service job card removed successfully' });
     } else {
-      const index = mockStore.services.findIndex((s) => s._id === id);
+      const index = mockStore.services.findIndex((s) => s._id === id && s.workshop_id === workshopId);
       if (index === -1) {
-        return res.status(404).json({ success: false, message: 'Service not found' });
+        return res.status(404).json({ success: false, message: 'Service not found in this workshop' });
       }
+
       mockStore.services.splice(index, 1);
-      return res.status(200).json({ success: true, message: 'Service job card deleted successfully' });
+      return res.status(200).json({ success: true, message: 'Service job card removed successfully' });
     }
   } catch (err) {
     next(err);

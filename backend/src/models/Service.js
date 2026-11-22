@@ -14,10 +14,18 @@ const labourChargeSchema = new mongoose.Schema({
 });
 
 const serviceSchema = new mongoose.Schema({
+  workshop_id: {
+    type: String,
+    required: [true, 'Workshop ID is required'],
+    index: true,
+  },
+  user_id: {
+    type: String,
+    index: true,
+  },
   jobCardNumber: {
     type: String,
     required: true,
-    unique: true,
     index: true,
   },
   customer: {
@@ -76,7 +84,7 @@ const serviceSchema = new mongoose.Schema({
   },
   taxRate: {
     type: Number,
-    default: 18, // 18% GST default
+    default: 18,
   },
   taxAmount: {
     type: Number,
@@ -98,28 +106,22 @@ const serviceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  nextServiceDate: {
-    type: Date,
-  },
   nextServiceKilometre: {
     type: Number,
     default: 0,
+  },
+  nextServiceDate: {
+    type: Date,
   },
   status: {
     type: String,
     enum: ['Booked', 'In Progress', 'Ready', 'Delivered', 'Cancelled'],
     default: 'Booked',
-    index: true,
   },
   paymentStatus: {
     type: String,
     enum: ['Pending', 'Partial', 'Paid'],
     default: 'Pending',
-    index: true,
-  },
-  assignedMechanic: {
-    type: String,
-    default: 'Chief Mechanic',
   },
   notes: {
     type: String,
@@ -129,42 +131,13 @@ const serviceSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-// Calculate totals before saving
-serviceSchema.pre('save', function (next) {
-  // calculate spare parts total
-  this.sparePartsTotal = (this.spareParts || []).reduce((acc, part) => {
-    part.total = (part.quantity || 1) * (part.unitPrice || 0);
-    return acc + part.total;
-  }, 0);
-
-  // calculate labour total
-  this.labourTotal = (this.labourCharges || []).reduce((acc, item) => {
-    return acc + (item.amount || 0);
-  }, 0);
-
-  const subtotal = this.sparePartsTotal + this.labourTotal - (this.discount || 0);
-  const positiveSubtotal = subtotal > 0 ? subtotal : 0;
-  
-  if (this.taxRate && this.taxRate > 0) {
-    this.taxAmount = Math.round((positiveSubtotal * this.taxRate) / 100);
-  } else {
-    this.taxAmount = 0;
-  }
-
-  this.totalAmount = Math.round(positiveSubtotal + this.taxAmount);
-  this.pendingBalance = Math.max(0, this.totalAmount - (this.paidAmount || 0));
-
-  if (this.paidAmount >= this.totalAmount && this.totalAmount > 0) {
-    this.paymentStatus = 'Paid';
-  } else if (this.paidAmount > 0) {
-    this.paymentStatus = 'Partial';
-  } else {
-    this.paymentStatus = 'Pending';
-  }
-
-  next();
-});
+// Multi-tenant unique index on jobCardNumber
+serviceSchema.index({ workshop_id: 1, jobCardNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Service', serviceSchema);

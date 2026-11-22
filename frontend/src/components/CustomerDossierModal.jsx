@@ -82,8 +82,8 @@ export default function CustomerDossierModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh] my-auto">
         {/* Header */}
         <div className="p-5 bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 text-white flex items-center justify-between no-print">
           <div className="flex items-center space-x-3">

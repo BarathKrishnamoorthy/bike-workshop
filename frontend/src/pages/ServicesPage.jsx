@@ -608,8 +608,8 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
 
       {/* New Job Card Modal with Phone-Based Customer Identification */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh]">
             <div className="p-5 border-b border-purple-100 bg-gradient-to-r from-purple-800 to-indigo-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg">Generate Job Card & Service Booking</h3>
@@ -1118,8 +1118,8 @@ export default function ServicesPage({ initialOpenNew, onOpenPaymentForService, 
 
       {/* Printable Job Card Modal */}
       {selectedJobCardForPrint && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh]">
             <div className="p-4 bg-purple-800 text-white flex items-center justify-between no-print">
               <h3 className="font-bold text-base">Workshop Job Card Preview</h3>
               <div className="flex items-center space-x-2">

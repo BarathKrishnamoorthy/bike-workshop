@@ -23,22 +23,23 @@ const convertToCSV = (arr) => {
   return [headers.join(','), ...rows].join('\r\n');
 };
 
-// @desc    Customer Summary Report (with optional mobile filter)
+// @desc    Customer Summary Report (with optional mobile filter) for current workshop
 // @route   GET /api/reports/customers
 // @access  Private
 exports.getCustomerReport = async (req, res, next) => {
   try {
     const { format, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     let report = [];
 
     if (getStatus()) {
-      let query = {};
+      let query = { workshop_id: workshopId };
       if (mobile) {
         query.mobile = { $regex: mobile.replace(/\D/g, ''), $options: 'i' };
       }
       const customers = await Customer.find(query).populate('bikes').lean();
-      const services = await Service.find().lean();
+      const services = await Service.find({ workshop_id: workshopId }).lean();
 
       report = customers.map((c) => {
         const custServices = services.filter((s) => String(s.customer) === String(c._id));
@@ -60,15 +61,15 @@ exports.getCustomerReport = async (req, res, next) => {
         };
       });
     } else {
-      let custList = [...mockStore.customers];
+      let custList = mockStore.customers.filter((c) => c.workshop_id === workshopId);
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         custList = custList.filter((c) => c.mobile.replace(/\D/g, '').includes(cleanMobile));
       }
 
       report = custList.map((c) => {
-        const custBikes = mockStore.bikes.filter((b) => b.customer === c._id);
-        const custServices = mockStore.services.filter((s) => s.customer === c._id);
+        const custBikes = mockStore.bikes.filter((b) => b.customer === c._id && b.workshop_id === workshopId);
+        const custServices = mockStore.services.filter((s) => s.customer === c._id && s.workshop_id === workshopId);
         const totalSpent = custServices.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
         const totalPaid = custServices.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
         const totalPending = custServices.reduce((sum, s) => sum + (s.pendingBalance || 0), 0);
@@ -101,17 +102,18 @@ exports.getCustomerReport = async (req, res, next) => {
   }
 };
 
-// @desc    Service Performance Report (Daily/Monthly with optional phone filter)
+// @desc    Service Performance Report for current workshop
 // @route   GET /api/reports/services
 // @access  Private
 exports.getServiceReport = async (req, res, next) => {
   try {
     const { startDate, endDate, format, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     let services = [];
 
     if (getStatus()) {
-      let query = {};
+      let query = { workshop_id: workshopId };
       if (startDate || endDate) {
         query.serviceDate = {};
         if (startDate) query.serviceDate.$gte = new Date(startDate);
@@ -124,6 +126,7 @@ exports.getServiceReport = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         query.customer = { $in: matchingCustomers.map((c) => c._id) };
@@ -134,7 +137,7 @@ exports.getServiceReport = async (req, res, next) => {
         .sort({ serviceDate: -1 })
         .lean();
     } else {
-      services = [...mockStore.services];
+      services = mockStore.services.filter((s) => s.workshop_id === workshopId);
       if (startDate) {
         services = services.filter((s) => new Date(s.serviceDate) >= new Date(startDate));
       }
@@ -146,13 +149,13 @@ exports.getServiceReport = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         services = services.filter((s) => {
-          const c = mockStore.customers.find((cust) => cust._id === s.customer);
+          const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
           return c && c.mobile.replace(/\D/g, '').includes(cleanMobile);
         });
       }
       services = services.map((s) => {
-        const c = mockStore.customers.find((cust) => cust._id === s.customer);
-        const b = mockStore.bikes.find((bk) => bk._id === s.bike);
+        const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+        const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
         return {
           ...s,
           customer: c ? { name: c.name, mobile: c.mobile } : null,
@@ -168,13 +171,13 @@ exports.getServiceReport = async (req, res, next) => {
       customerMobile: s.customer ? s.customer.mobile : 'N/A',
       bike: s.bike ? `${s.bike.brand} ${s.bike.model} (${s.bike.registrationNumber})` : 'N/A',
       serviceType: s.serviceType,
-      currentKm: s.currentKilometre,
-      sparePartsTotal: s.sparePartsTotal,
-      labourTotal: s.labourTotal,
-      taxAmount: s.taxAmount,
-      totalAmount: s.totalAmount,
-      paidAmount: s.paidAmount,
-      pendingBalance: s.pendingBalance,
+      sparePartsCost: s.sparePartsTotal || 0,
+      labourCost: s.labourTotal || 0,
+      discount: s.discount || 0,
+      taxAmount: s.taxAmount || 0,
+      totalAmount: s.totalAmount || 0,
+      paidAmount: s.paidAmount || 0,
+      pendingBalance: s.pendingBalance || 0,
       status: s.status,
       paymentStatus: s.paymentStatus,
     }));
@@ -192,22 +195,24 @@ exports.getServiceReport = async (req, res, next) => {
   }
 };
 
-// @desc    Upcoming & Overdue Service Reminders (with optional mobile filter)
+// @desc    Service Reminders Report for current workshop
 // @route   GET /api/reports/reminders
 // @access  Private
 exports.getRemindersReport = async (req, res, next) => {
   try {
     const { format, mobile } = req.query;
+    const workshopId = req.workshopId;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let list = [];
 
     if (getStatus()) {
-      let query = { nextServiceDate: { $exists: true } };
+      let query = { workshop_id: workshopId, nextServiceDate: { $exists: true } };
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         query.customer = { $in: matchingCustomers.map((c) => c._id) };
@@ -217,15 +222,17 @@ exports.getRemindersReport = async (req, res, next) => {
         .populate('bike', 'brand model registrationNumber currentKilometre')
         .lean();
     } else {
-      list = mockStore.services.map((s) => {
-        const c = mockStore.customers.find((cust) => cust._id === s.customer);
-        const b = mockStore.bikes.find((bk) => bk._id === s.bike);
-        return {
-          ...s,
-          customer: c ? { name: c.name, mobile: c.mobile, email: c.email } : null,
-          bike: b ? { brand: b.brand, model: b.model, registrationNumber: b.registrationNumber, currentKilometre: b.currentKilometre } : null,
-        };
-      });
+      list = mockStore.services
+        .filter((s) => s.workshop_id === workshopId && s.nextServiceDate)
+        .map((s) => {
+          const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+          const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
+          return {
+            ...s,
+            customer: c ? { name: c.name, mobile: c.mobile, email: c.email } : null,
+            bike: b ? { brand: b.brand, model: b.model, registrationNumber: b.registrationNumber, currentKilometre: b.currentKilometre } : null,
+          };
+        });
 
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
@@ -234,7 +241,6 @@ exports.getRemindersReport = async (req, res, next) => {
     }
 
     const report = list
-      .filter((s) => s.nextServiceDate)
       .map((s) => {
         const dueDate = new Date(s.nextServiceDate);
         const isOverdue = dueDate < today;
@@ -269,20 +275,22 @@ exports.getRemindersReport = async (req, res, next) => {
   }
 };
 
-// @desc    Pending Payments Report (with optional mobile filter)
+// @desc    Pending Payments Report for current workshop
 // @route   GET /api/reports/pending-payments
 // @access  Private
 exports.getPendingPaymentsReport = async (req, res, next) => {
   try {
     const { format, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     let pendingList = [];
 
     if (getStatus()) {
-      let query = { pendingBalance: { $gt: 0 } };
+      let query = { workshop_id: workshopId, pendingBalance: { $gt: 0 } };
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         query.customer = { $in: matchingCustomers.map((c) => c._id) };
@@ -294,10 +302,10 @@ exports.getPendingPaymentsReport = async (req, res, next) => {
         .lean();
     } else {
       pendingList = mockStore.services
-        .filter((s) => s.pendingBalance > 0)
+        .filter((s) => s.workshop_id === workshopId && s.pendingBalance > 0)
         .map((s) => {
-          const c = mockStore.customers.find((cust) => cust._id === s.customer);
-          const b = mockStore.bikes.find((bk) => bk._id === s.bike);
+          const c = mockStore.customers.find((cust) => cust._id === s.customer && cust.workshop_id === workshopId);
+          const b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
           return {
             ...s,
             customer: c ? { name: c.name, mobile: c.mobile, email: c.email } : null,
@@ -339,17 +347,18 @@ exports.getPendingPaymentsReport = async (req, res, next) => {
   }
 };
 
-// @desc    Collections Report (with optional mobile filter)
+// @desc    Collections Report for current workshop
 // @route   GET /api/reports/collections
 // @access  Private
 exports.getCollectionsReport = async (req, res, next) => {
   try {
     const { startDate, endDate, format, mobile } = req.query;
+    const workshopId = req.workshopId;
 
     let payments = [];
 
     if (getStatus()) {
-      let query = {};
+      let query = { workshop_id: workshopId };
       if (startDate || endDate) {
         query.paymentDate = {};
         if (startDate) query.paymentDate.$gte = new Date(startDate);
@@ -362,6 +371,7 @@ exports.getCollectionsReport = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         const matchingCustomers = await Customer.find({
+          workshop_id: workshopId,
           mobile: { $regex: cleanMobile, $options: 'i' },
         }).select('_id');
         query.customer = { $in: matchingCustomers.map((c) => c._id) };
@@ -370,13 +380,12 @@ exports.getCollectionsReport = async (req, res, next) => {
         .populate('customer', 'name mobile')
         .populate({
           path: 'service',
-          select: 'jobCardNumber serviceType',
           populate: { path: 'bike', select: 'brand model registrationNumber' },
         })
         .sort({ paymentDate: -1 })
         .lean();
     } else {
-      payments = [...mockStore.payments];
+      payments = mockStore.payments.filter((p) => p.workshop_id === workshopId);
       if (startDate) {
         payments = payments.filter((p) => new Date(p.paymentDate) >= new Date(startDate));
       }
@@ -388,16 +397,16 @@ exports.getCollectionsReport = async (req, res, next) => {
       if (mobile) {
         const cleanMobile = mobile.replace(/\D/g, '');
         payments = payments.filter((p) => {
-          const c = mockStore.customers.find((cust) => cust._id === p.customer);
+          const c = mockStore.customers.find((cust) => cust._id === p.customer && cust.workshop_id === workshopId);
           return c && c.mobile.replace(/\D/g, '').includes(cleanMobile);
         });
       }
       payments = payments.map((p) => {
-        const c = mockStore.customers.find((cust) => cust._id === p.customer);
-        const s = mockStore.services.find((srv) => srv._id === p.service);
+        const c = mockStore.customers.find((cust) => cust._id === p.customer && cust.workshop_id === workshopId);
+        const s = mockStore.services.find((srv) => srv._id === p.service && srv.workshop_id === workshopId);
         let b = null;
         if (s) {
-          b = mockStore.bikes.find((bk) => bk._id === s.bike);
+          b = mockStore.bikes.find((bk) => bk._id === s.bike && bk.workshop_id === workshopId);
         }
         return {
           ...p,
@@ -435,13 +444,14 @@ exports.getCollectionsReport = async (req, res, next) => {
   }
 };
 
-// @desc    Customer 360-degree Dossier & Comprehensive Service History by Phone
+// @desc    Customer 360-degree Dossier & Comprehensive Service History by Phone for current workshop
 // @route   GET /api/reports/customer-dossier/:mobile
 // @access  Private
 exports.getCustomerDossierReport = async (req, res, next) => {
   try {
     const rawMobile = req.params.mobile ? req.params.mobile.replace(/\D/g, '') : '';
     const { format } = req.query;
+    const workshopId = req.workshopId;
 
     if (!rawMobile) {
       return res.status(400).json({ success: false, message: 'Please provide mobile number' });
@@ -453,34 +463,43 @@ exports.getCustomerDossierReport = async (req, res, next) => {
     let payments = [];
 
     if (getStatus()) {
-      customer = await Customer.findOne({ mobile: rawMobile }).populate('bikes').lean();
+      customer = await Customer.findOne({ workshop_id: workshopId, mobile: rawMobile }).populate('bikes').lean();
       if (!customer) {
-        customer = await Customer.findOne({ mobile: { $regex: rawMobile, $options: 'i' } }).populate('bikes').lean();
+        customer = await Customer.findOne({
+          workshop_id: workshopId,
+          mobile: { $regex: rawMobile, $options: 'i' },
+        }).populate('bikes').lean();
       }
       if (!customer) {
-        return res.status(404).json({ success: false, message: `No customer record found for mobile ${rawMobile}` });
+        return res.status(404).json({ success: false, message: `No customer record found for mobile ${rawMobile} in this workshop` });
       }
       customerBikes = customer.bikes || [];
-      services = await Service.find({ customer: customer._id }).populate('bike').sort({ serviceDate: -1 }).lean();
-      payments = await Payment.find({ customer: customer._id }).sort({ paymentDate: -1 }).lean();
+      services = await Service.find({ customer: customer._id, workshop_id: workshopId }).populate('bike').sort({ serviceDate: -1 }).lean();
+      payments = await Payment.find({ customer: customer._id, workshop_id: workshopId }).sort({ paymentDate: -1 }).lean();
     } else {
-      customer = mockStore.customers.find((c) => c.mobile.replace(/\D/g, '') === rawMobile);
+      customer = mockStore.customers.find(
+        (c) => c.workshop_id === workshopId && c.mobile.replace(/\D/g, '') === rawMobile
+      );
       if (!customer) {
-        customer = mockStore.customers.find((c) => c.mobile.replace(/\D/g, '').includes(rawMobile));
+        customer = mockStore.customers.find(
+          (c) => c.workshop_id === workshopId && c.mobile.replace(/\D/g, '').includes(rawMobile)
+        );
       }
       if (!customer) {
-        return res.status(404).json({ success: false, message: `No customer record found for mobile ${rawMobile}` });
+        return res.status(404).json({ success: false, message: `No customer record found for mobile ${rawMobile} in this workshop` });
       }
-      customerBikes = mockStore.bikes.filter((b) => b.customer === customer._id || (customer.bikes && customer.bikes.includes(b._id)));
+      customerBikes = mockStore.bikes.filter(
+        (b) => b.workshop_id === workshopId && (b.customer === customer._id || (customer.bikes && customer.bikes.includes(b._id)))
+      );
       services = mockStore.services
-        .filter((s) => s.customer === customer._id)
+        .filter((s) => s.workshop_id === workshopId && s.customer === customer._id)
         .map((s) => ({
           ...s,
-          bike: mockStore.bikes.find((b) => b._id === s.bike) || s.bike,
+          bike: mockStore.bikes.find((b) => b._id === s.bike && b.workshop_id === workshopId) || s.bike,
         }))
         .sort((a, b) => new Date(b.serviceDate) - new Date(a.serviceDate));
       payments = mockStore.payments
-        .filter((p) => p.customer === customer._id)
+        .filter((p) => p.workshop_id === workshopId && p.customer === customer._id)
         .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
     }
 

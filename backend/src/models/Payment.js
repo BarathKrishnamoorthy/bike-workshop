@@ -1,10 +1,18 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
+  workshop_id: {
+    type: String,
+    required: [true, 'Workshop ID is required'],
+    index: true,
+  },
+  user_id: {
+    type: String,
+    index: true,
+  },
   invoiceNumber: {
     type: String,
     required: true,
-    unique: true,
     index: true,
   },
   service: {
@@ -63,6 +71,13 @@ const paymentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
+
+// Multi-tenant unique index on invoiceNumber
+paymentSchema.index({ workshop_id: 1, invoiceNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Payment', paymentSchema);

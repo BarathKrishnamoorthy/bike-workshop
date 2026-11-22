@@ -420,19 +420,19 @@ export default function PaymentsPage({ initialServiceForPayment, onLookupPhone }
 
       {/* Record Payment Modal with Phone Quick Search */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-purple-100 overflow-hidden">
-            <div className="p-5 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-purple-100 overflow-hidden my-auto flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh]">
+            <div className="p-4 sm:p-5 border-b border-purple-100 bg-purple-700 text-white flex items-center justify-between shrink-0">
               <div>
-                <h3 className="font-bold text-lg">Record Customer Payment</h3>
+                <h3 className="font-bold text-base sm:text-lg">Record Customer Payment</h3>
                 <p className="text-xs text-purple-200">Collect advance, partial or final settlement</p>
               </div>
-              <button onClick={() => setShowRecordModal(false)} className="text-purple-200 hover:text-white">
+              <button onClick={() => setShowRecordModal(false)} className="text-purple-200 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
+            <form onSubmit={handleRecordPayment} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {/* Optional Phone filter in modal to quickly find customer's bills */}
               <div>
                 <label className="text-xs font-semibold text-slate-600 block mb-1">Filter Job Cards by Customer Phone</label>
@@ -572,8 +572,8 @@ export default function PaymentsPage({ initialServiceForPayment, onLookupPhone }
 
       {/* Tax Invoice & Payment Receipt Modal */}
       {selectedReceipt && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-5 pt-3 sm:pt-5">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full shadow-2xl border border-purple-100 overflow-hidden flex flex-col my-auto max-h-[calc(100dvh-1.5rem)] sm:max-h-[92vh]">
             <div className="p-4 bg-purple-800 text-white flex items-center justify-between no-print">
               <h3 className="font-bold text-sm">Tax Invoice & Payment Receipt</h3>
               <div className="flex items-center space-x-2">

@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 
 const bikeSchema = new mongoose.Schema({
+  workshop_id: {
+    type: String,
+    required: [true, 'Workshop ID is required'],
+    index: true,
+  },
+  user_id: {
+    type: String,
+    index: true,
+  },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
@@ -55,6 +64,13 @@ const bikeSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
+
+// Multi-tenant index
+bikeSchema.index({ workshop_id: 1, registrationNumber: 1 });
 
 module.exports = mongoose.model('Bike', bikeSchema);
